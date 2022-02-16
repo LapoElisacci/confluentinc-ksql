@@ -36,9 +36,9 @@ import io.confluent.ksql.api.client.StreamedQueryResult;
 import io.confluent.ksql.api.client.TableInfo;
 import io.confluent.ksql.api.client.TopicInfo;
 import io.confluent.ksql.api.client.exception.KsqlClientException;
-import io.confluent.ksql.rest.entity.PushContinuationToken;
 import io.confluent.ksql.util.ConsistencyOffsetVector;
 import io.confluent.ksql.util.KsqlRequestConfig;
+import io.confluent.ksql.util.PushOffsetVector;
 import io.confluent.ksql.util.VertxSslOptionsFactory;
 import io.vertx.core.Context;
 import io.vertx.core.Handler;
@@ -88,7 +88,7 @@ public class ClientImpl implements Client {
   private final Map<String, Object> sessionVariables;
   private final Map<String, Object> requestProperties;
   private final AtomicReference<String> serializedConsistencyVector;
-  private final AtomicReference<String> serializedContinuationToken;
+  private final AtomicReference<String> continuationToken;
   /**
    * {@code Client} instances should be created via {@link Client#create(ClientOptions)}, NOT via
    * this constructor.
@@ -116,7 +116,7 @@ public class ClientImpl implements Client {
         SocketAddress.inetSocketAddress(clientOptions.getPort(), clientOptions.getHost());
     this.sessionVariables = new HashMap<>();
     this.serializedConsistencyVector = new AtomicReference<>("");
-    this.serializedContinuationToken = new AtomicReference<>("");
+    this.continuationToken = new AtomicReference<>("");
     this.requestProperties = new HashMap<>();
   }
 
@@ -135,15 +135,15 @@ public class ClientImpl implements Client {
           KsqlRequestConfig.KSQL_REQUEST_QUERY_PULL_CONSISTENCY_OFFSET_VECTOR,
           serializedConsistencyVector.get());
     }
-    if (PushContinuationToken.isContinuationTokenEnabled(properties)) {
+    if (PushOffsetVector.isContinuationTokenEnabled(properties)) {
       requestProperties.put(
               KsqlRequestConfig.KSQL_REQUEST_QUERY_PUSH_CONTINUATION_TOKEN,
-              serializedContinuationToken.get());
+              continuationToken.get());
     }
     final CompletableFuture<StreamedQueryResult> cf = new CompletableFuture<>();
     makeQueryRequest(sql, properties, cf,
         (ctx, rp, fut, req) -> new StreamQueryResponseHandler(
-            ctx, rp, fut, serializedConsistencyVector, serializedContinuationToken));
+            ctx, rp, fut, serializedConsistencyVector, continuationToken));
     return cf;
   }
 
